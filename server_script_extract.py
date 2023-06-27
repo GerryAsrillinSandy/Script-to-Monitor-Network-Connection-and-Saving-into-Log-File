@@ -2,6 +2,7 @@ import csv
 import json
 import time
 import requests
+import shutil
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -47,6 +48,13 @@ def get_api_token():
 api_url, api_headers = get_api_token()
 
 
+# Fungsi untuk melakukan reconnect ke endpoint
+def reconnect_to_endpoint():
+    print("Terjadi kesalahan koneksi. Melakukan reconnect ke endpoint...")
+    global api_url, api_headers
+    api_url, api_headers = get_api_token()
+
+
 # Fungsi untuk mengirim permintaan REST API dengan data batch
 def send_rest_api_request(url, headers, data):
     try:
@@ -58,12 +66,24 @@ def send_rest_api_request(url, headers, data):
         processed_data_counter += 1
     except requests.exceptions.RequestException as err:
         print(f"Terjadi kesalahan saat mengirim permintaan ke {url}: {err}")
+        reconnect_to_endpoint()
+
+
+# Fungsi untuk memindahkan file yang sudah diproses ke dalam folder baru
+def move_processed_file(file_path, destination_folder):
+    try:
+        shutil.move(file_path, destination_folder)
+        print(f"File {file_path} berhasil dipindahkan ke {destination_folder}")
+    except shutil.Error as e:
+        print(f"Gagal memindahkan file {file_path}: {e}")
+    except Exception as e:
+        print(f"Terjadi kesalahan saat memindahkan file {file_path}: {e}")
 
 
 # Fungsi untuk mengubah file CSV menjadi rest API JSON
 def convert_csv_to_restapi_json(file_path):
     with open(file_path, "r") as file:
-        reader = csv.DictReader(file, delimiter="|")
+        reader = csv.DictReader(file)
         data_list = list(reader)
 
     total_rows = len(data_list)  # Menghitung jumlah total baris
@@ -76,14 +96,16 @@ def convert_csv_to_restapi_json(file_path):
 
     if processed_data_counter >= total_rows:
         print("Semua data CSV telah diproses.")
+        # Ganti dengan path folder tujuan yang Anda inginkan
+        move_processed_file(
+            file_path, "/Users/gerryasrillinsandy/Documents/data-dump/processed")
         print(
             f"Jumlah data yang sudah selesai diproses: {processed_data_counter}")
         observer = Observer()
         observer.stop()
         print("Memantau folder lagi...")
-
-    processed_data_counter = 0  # Reset counter
-    monitor_folder(folder_path)
+        processed_data_counter = 0  # Reset counter
+        monitor_folder(folder_path)
 
 
 # Fungsi untuk menangani perubahan pada folder
@@ -114,5 +136,5 @@ def monitor_folder(folder_path):
 
 
 # Menjalankan script untuk memantau folder
-folder_path = "D:\Task\AOS\script\data"
+folder_path = "/Users/gerryasrillinsandy/Documents/data-dump"
 monitor_folder(folder_path)
